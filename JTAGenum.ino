@@ -22,7 +22,7 @@
 //needed to put help strings into flash
 #include <avr/pgmspace.h>
 // Save the jtag pin configuration
-#include <EEPROM.h>
+
 
 #define DEBUGTAP
 #define DEBUGIR
@@ -39,26 +39,29 @@
  * pinnames[] can be any string you choose
  * when in doubt comment out all but one pin[] pinnames[] definition
  */
-//#if   defined(KINETISK)     // Teensy v3 usable digital are: A0-A7. 13=LED
- // byte       pins[] = {  A0 ,  A1 ,  A2 ,  A3 ,  A4 ,  A5 ,  A6 ,  A7  };
-//  char * pinnames[] = { "A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7" };
-//#elif defined(CORE_TEENSY)  // Teensy v2
- // byte       pins[] = { PIN_B2 , PIN_B3 , PIN_B6 , PIN_B4 , PIN_B1  };
- // char * pinnames[] = {    "B2",    "B3",    "B6",    "B4",    "B1" };
-//#elif defined(ENERGIA)     // TI Launchpad Tiva C
- // byte       pins[] = {  PA_5,   PB_4,   PE_5,   PE_4,   PB_1  };
- // char * pinnames[] = { "PA_5", "PB_4", "PE_5", "PE_4", "PB_1" };
-//#elif defined(STM32)       // STM32 bluepill, pinout is here: https://wiki.stm32duino.com/index.php?title=File:Bluepillpinout.gif. See also instructions to get it running with the Arduino IDE here: http://www.zoobab.com/bluepill-arduinoide
- // byte       pins[] = {  10 ,  11 ,  12 ,  13 ,  14 ,  15 ,  16 ,  17, 18 , 19 , 21 , 22  };
- // char * pinnames[] = { "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "21", "22" };
-//#elif defined(ESP_H)       // ESP8266 Wemos D1 Mini. if properly not set may trigger watchdog
-  ///byte       pins[] = {  D1 ,  D2 ,  D3 ,  D4 ,  D5 ,  D6 ,  D7 ,  D8  };
-  //char * pinnames[] = { "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8" };
-//#else                      // DEFAULT
+#if   defined(KINETISK)     // Teensy v3 usable digital are: A0-A7. 13=LED
+ byte       pins[] = {  A0 ,  A1 ,  A2 ,  A3 ,  A4 ,  A5 ,  A6 ,  A7  };
+ char * pinnames[] = { "A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7" };
+#elif defined(CORE_TEENSY)  // Teensy v2
+ byte       pins[] = { PIN_B2 , PIN_B3 , PIN_B6 , PIN_B4 , PIN_B1  };
+ char * pinnames[] = {    "B2",    "B3",    "B6",    "B4",    "B1" };
+#elif defined(ENERGIA)     // TI Launchpad Tiva C
+ byte       pins[] = {  PA_5,   PB_4,   PE_5,   PE_4,   PB_1  };
+ char * pinnames[] = { "PA_5", "PB_4", "PE_5", "PE_4", "PB_1" };
+#elif defined(STM32)       // STM32 bluepill, pinout is here: https://wiki.stm32duino.com/index.php?title=File:Bluepillpinout.gif. See also instructions to get it running with the Arduino IDE here: http://www.zoobab.com/bluepill-arduinoide
+ byte       pins[] = {  10 ,  11 ,  12 ,  13 ,  14 ,  15 ,  16 ,  17, 18 , 19 , 21 , 22  };
+ char * pinnames[] = { "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "21", "22" };
+#elif defined(ESP_H)       // ESP8266 Wemos D1 Mini. if properly not set may trigger watchdog
+ byte       pins[] = {  D1 ,  D2 ,  D3 ,  D4 ,  D5 ,  D6 ,  D7 ,  D8  };
+ char * pinnames[] = { "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8" };
+#else                      // DEFAULT
                            // Arduino Pro. usable digital 2-12,14-10. 13=LED 0,1=serial
-  byte       pins[] = { 2, 3, 4, 5, 6, 7, 8 };
-  char * pinnames[] = { "DIG_2", "DIG_3", "DIG_4", "DIG_5" , "DIG_6", "DIG_7" };
-//#endif
+  byte       pins[] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+  char * pinnames[] = { "DIG_2", "DIG_3", "DIG_4", "DIG_5" , "DIG_6",
+                        "DIG_7", "DIG_8", "DIG_9", "DIG_10", "DIG_11" };
+  #include <EEPROM.h>
+  #define EEPROMSTORE
+#endif
 
 // Once you have found the JTAG pins you can define
 // the following to allow for the boundary scan and
@@ -66,7 +69,7 @@
 //
 // The value is the index to the pin in pins[] array
 // eg. TCK=3 is used as pins[TCK] pins[3]
-char * jtagpinnames[] = { " TCK", " TMS", " TDO", " TDI", "TRST" };
+char * jtagpinnames[] = { "TCK", "TMS", "TDO", "TDI", "TRST" };
 
 byte TCK  = -1;
 byte TMS  = -1;
@@ -136,11 +139,13 @@ void setup(void)
         CPU_PRESCALE(0x01);
 #endif
         Serial.begin(115200);
-        Serial.println("Jtag Enum is booting up");
+
+#ifdef EEPROMSTORE
+        // if we are on arduino we can save/restore jtag pins from
+        // the eeprom
         byte * curr;
         for (int i = 0; i < 5; ++i)
         {
-          
           switch (i) {
               case 0:
                 curr = &TCK;
@@ -157,11 +162,11 @@ void setup(void)
               case 4:
                 curr = &TRST;
                 break;
-      
           }
           if (*curr != -1)
             *curr = EEPROM.read(i);
         }
+#endif
 }
 
 
@@ -754,8 +759,10 @@ void configure_pins(){
     }
     *curr = Serial.read() - '0';
     Serial.print(*curr);
+#ifdef EEPROMSTORE
     // Save to eeprom
     EEPROM.write(i, *curr);
+#endif
   }
   Serial.print("\nConfiguration saved\n");
 }
